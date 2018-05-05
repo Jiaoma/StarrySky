@@ -28,12 +28,12 @@ def LoadSingleImageFromFolder(rootdir):
     imageData=None
     for i in range(image_num):
         imageData=cv2.imread(imageNameList[i])
-        yield imageData
-    return imageData
+        yield imageData,imageNameList[i].split('/')[-1]
+    return imageData,imageNameList[-1].split('/')[-1]
 
 class PerspectiveMatcher:
     def __init__(self,firstImgPath,hessianThreshold=8000,padding=10,stable_num=6):
-        self.img1=next(LoadSingleImageFromFolder(firstImgPath))
+        self.img1,self.imgName=next(LoadSingleImageFromFolder(firstImgPath))
         self.rows,self.cols,self.chs=self.img1.shape
         self.hessianThreshold=hessianThreshold
         self.padding=padding
@@ -78,7 +78,7 @@ class PerspectiveMatcher:
         self.result=np.where(self.result<0,0,self.result)
         self.result=np.where(self.result>255,255,self.result)
         self.result=np.uint8(self.result)
-        return self.result
+        return self.result,self.imgName
     
     def sortAndCut(self):
         for i in range(len(self.StarXYPerImageList)):
@@ -131,4 +131,5 @@ if __name__=='__main__':
     testMatcher.PerspectiveCombine()
     testMatcher.curveAdjust()
     testMatcher.sharpen()
-    cv2.imwrite('final.png',testMatcher.finalResult())
+    img,name=testMatcher.finalResult()
+    cv2.imwrite('sr_{}.png'.format(name),img)
