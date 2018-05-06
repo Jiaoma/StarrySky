@@ -12,7 +12,7 @@
 示例:
 ```
     rootPath='/home/ljc/github/StarrySky/data'
-    firstPath='/target/HQ_Auriga_Taurus'
+    firstPath='/target/HQ_Gemini_Cancer'
     allPath='/major'
     testMatcher=PerspectiveMatcher(rootPath+firstPath)
     testMatcher.getAllImage(rootPath+firstPath+allPath)
@@ -20,5 +20,6 @@
     testMatcher.PerspectiveCombine()
     testMatcher.curveAdjust()
     testMatcher.sharpen()
-    cv2.imwrite('final.png',testMatcher.finalResult())
+    img,name=testMatcher.finalResult()
+    cv2.imwrite('sr_{}.png'.format(name),img)
 ```
