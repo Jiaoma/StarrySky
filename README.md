@@ -9,10 +9,12 @@
 	4.设置画面偏蓝
 由于多个函数使用了默认参数，具体参数设置，看代码里面吧，名字应该能猜出是什么了。
 建议图片文件的存放方式如下：
+```
 yourfolder
 	|->yourfistimage.jpg
-	|->major
+	|->majorfolder
 		|->other images
+```
 
 示例:
 ```
