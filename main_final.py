@@ -31,8 +31,26 @@ def LoadSingleImageFromFolder(rootdir):
         yield imageData,imageNameList[i].split('/')[-1]
     return imageData,imageNameList[-1].split('/')[-1]
 
+def imshow(img):
+    while(1):
+        cv2.imshow('test',img)
+        k=cv2.waitKey(1)&0xFF
+        if k==27:
+            break  
+    cv2.destroyAllWindows()
+    
+def deconvolve(img,kenerl,mode='same'):
+    #Lack of time, I only code the 'same' mode.
+    rows,cols,chs=img.shape
+    
+    if mode=='same':
+        pass
+
+def distance(axy,bxy):
+    return (axy[0]-bxy[0])**2+(axy[1]-bxy[1])**2
+
 class PerspectiveMatcher:
-    def __init__(self,firstImgPath,hessianThreshold=8000,padding=10,stable_num=6):
+    def __init__(self,firstImgPath,hessianThreshold=8000,padding=10,stable_num=8):
         self.img1,self.imgName=next(LoadSingleImageFromFolder(firstImgPath))
         self.rows,self.cols,self.chs=self.img1.shape
         self.hessianThreshold=hessianThreshold
@@ -49,6 +67,7 @@ class PerspectiveMatcher:
 
     def getAllImage(self,ImgFolder):
         self.Imgs=LoadAllImageFromFolder(ImgFolder)
+        self.totalNum=1+len(self.Imgs)
 
     def getStableStarXY(self):
         surf = cv2.xfeatures2d.SURF_create(hessianThreshold=self.hessianThreshold)
@@ -59,14 +78,32 @@ class PerspectiveMatcher:
             gray=cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
             StarXY, _ = surf.detectAndCompute(gray, mask)
             self.StarXYPerImageList.append([[x.pt[0],x.pt[1]] for x in StarXY[:self.stable_num]])
-            
-    def PerspectiveCombine(self):
+    def XYFilter(self,threshold):
+        #Due to the unstable star detection, We need to pick up a group of points from origin data of every image
+        #This action must after sortAndCut
+        flagList=self.StarXYPerImageList[0]
+        for index,starList in enumerate(self.StarXYPerImageList[1:]):
+            newList=[[0,0]]*len(self.StarXYPerImageList[0])
+            for star in starList:
+                dist=[distance(star,x) for x in flagList]
+                minDist=min(dist)
+                if minDist<threshold:
+                    newList[dist.index(minDist)]=star
+            self.StarXYPerImageList[index+1]=newList#+1, because 1st is ignored in this loop
+    
+    def PerspectiveCombine(self,threshold=10000):
         self.sortAndCut()
-        Pt1=np.array(self.StarXYPerImageList[0],dtype=np.float32)
+        self.XYFilter(threshold)
         self.result=np.int16(self.img1)
         for pt in range(1,len(self.StarXYPerImageList)):
             pts=self.StarXYPerImageList[pt]
-            PerspectiveMatrix = cv2.getPerspectiveTransform(np.array(pts,dtype=np.float32), Pt1)
+            index=[i for i in range(len(pts)) if pts[i]!=[0,0]]
+            if len(index)<4:
+                print('warning:picture %d is ignored, due to lack fitted stars'%pt)
+                #print(self.StarXYPerImageList[pt])
+                continue
+            index=index[:4]
+            PerspectiveMatrix = cv2.getPerspectiveTransform(np.array([pts[i] for i in index],dtype=np.float32), np.array([self.StarXYPerImageList[0][i] for i in index],dtype=np.float32))
             PerspectiveImg = cv2.warpPerspective(self.Imgs[pt-1], PerspectiveMatrix, (self.cols,self.rows))
             self.result=np.int16(np.mean([self.result,PerspectiveImg],axis=0))
         
@@ -89,7 +126,7 @@ class PerspectiveMatcher:
                 if np.sum((np.array(latter)-np.array(j))**2)>5:
                     scList.append(j)
                     latter=j
-            self.StarXYPerImageList[i]=scList[:4]
+            self.StarXYPerImageList[i]=scList
             
     def curveAdjust(self,p255=[0,15,30,100,200,255],pc255=[0,10,50,150,210,255],bgrWeight=[1.2,1,1],threshold=10):
         curveFunction=interpolate.interp1d(np.array(p255,dtype=np.int16), np.array(pc255,dtype=np.int16), kind='cubic')
@@ -123,7 +160,7 @@ class PerspectiveMatcher:
         
 if __name__=='__main__':
     rootPath='/home/ljc/github/StarrySky/data'
-    firstPath='/target/HQ_Auriga_Taurus'
+    firstPath='/target/HQ_Gemini_Cancer'
     allPath='/major'
     testMatcher=PerspectiveMatcher(rootPath+firstPath)
     testMatcher.getAllImage(rootPath+firstPath+allPath)
